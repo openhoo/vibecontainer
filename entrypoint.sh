@@ -157,6 +157,7 @@ fi
 # ---------------------------------------------------------------------------
 ttyd_child_pids=()
 
+# shellcheck disable=SC2329 # Invoked via trap below.
 cleanup() {
     gosu dev tmux kill-session -t "$TMUX_SESSION_NAME" 2>/dev/null || true
     local pid
