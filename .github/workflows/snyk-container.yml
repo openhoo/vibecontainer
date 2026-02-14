@@ -28,7 +28,13 @@ jobs:
         with:
           image: your/image-to-test
           args: --file=Dockerfile --sarif-file-output=snyk.sarif
+      - name: Normalize SARIF for GitHub Code Scanning
+        run: |
+          jq '
+            .runs[].tool.driver.rules[]?.properties."security-severity" |=
+            (if . == null then "0.0" else tostring end)
+          ' snyk.sarif > snyk-normalized.sarif
       - name: Upload result to GitHub Code Scanning
-        uses: github/codeql-action/upload-sarif@60d8f0d1f1f8c8d07ef53bd027032705d414ec28
+        uses: github/codeql-action/upload-sarif@58d4c8134bcf8ae089f888d056501755e0da2b44
         with:
-          sarif_file: snyk.sarif
+          sarif_file: snyk-normalized.sarif
