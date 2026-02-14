@@ -1,4 +1,4 @@
-FROM debian:bookworm-slim
+FROM debian:13.3-slim
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
