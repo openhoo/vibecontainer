@@ -23,6 +23,26 @@ validate_port() {
     fi
 }
 
+validate_ttyd_credential() {
+    # Expect format "user:password" without whitespace. Do not echo the value to avoid leaking it.
+    local cred="$1"
+    if [ -z "$cred" ]; then
+        echo "Error: TTYD_CREDENTIAL is set but empty; expected format 'user:password'."
+        exit 1
+    fi
+    case "$cred" in
+        *[[:space:]]*)
+            echo "Error: TTYD_CREDENTIAL must not contain whitespace; expected format 'user:password'."
+            exit 1
+            ;;
+    esac
+    # Use bash built-in pattern matching to avoid exposing credential in process listings
+    if [[ "$cred" != *:* ]]; then
+        echo "Error: TTYD_CREDENTIAL must be in the form 'user:password'."
+        exit 1
+    fi
+}
+
 if [ "$TMUX_WEB_ENABLE" = "1" ]; then
     validate_port "TMUX_WEB_READONLY_PORT" "$TMUX_WEB_READONLY_PORT"
     if [ "$TMUX_WEB_INTERACTIVE_ENABLE" = "1" ]; then
@@ -44,7 +64,7 @@ fi
 # ---------------------------------------------------------------------------
 run_ufw() {
     if ! ufw "$@"; then
-        echo "Error: failed to run 'ufw $*'."
+        echo "Error: failed to run 'ufw' command."
         echo "This may indicate that ufw is not properly initialized or that the container"
         echo "lacks the required NET_ADMIN and NET_RAW capabilities to manage firewall rules."
         exit 1
@@ -96,14 +116,13 @@ export HOME="/home/dev"
 # Build command
 # ---------------------------------------------------------------------------
 quote_command_args() {
-    local cmd
+    local cmd=""
     if [ "$#" -eq 0 ]; then
         # Default to an interactive login shell when no command is provided.
         set -- bash -l
     fi
 
     local arg first=1
-    cmd=""
     for arg in "$@"; do
         if [ "$first" -eq 1 ]; then
             cmd="$(printf '%q' "$arg")"
@@ -136,16 +155,16 @@ fi
 # ---------------------------------------------------------------------------
 # Web mode: start ttyd instances
 # ---------------------------------------------------------------------------
-child_pids=()
+ttyd_child_pids=()
 
 cleanup() {
     gosu dev tmux kill-session -t "$TMUX_SESSION_NAME" 2>/dev/null || true
     local pid
-    for pid in "${child_pids[@]}"; do
+    for pid in "${ttyd_child_pids[@]}"; do
         kill "$pid" 2>/dev/null || true
     done
-    if [ "${#child_pids[@]}" -gt 0 ]; then
-        wait "${child_pids[@]}" 2>/dev/null || true
+    if [ "${#ttyd_child_pids[@]}" -gt 0 ]; then
+        wait "${ttyd_child_pids[@]}" 2>/dev/null || true
     fi
 }
 
@@ -154,17 +173,23 @@ trap cleanup EXIT INT TERM
 # Optional basic-auth for ttyd (format: "user:password")
 ttyd_auth_args=()
 if [ -n "${TTYD_CREDENTIAL:-}" ]; then
+    validate_ttyd_credential "$TTYD_CREDENTIAL"
     ttyd_auth_args+=(-c "$TTYD_CREDENTIAL")
 fi
 
 gosu dev ttyd "${ttyd_auth_args[@]}" -i "$TMUX_WEB_BIND_ADDRESS" -p "$TMUX_WEB_READONLY_PORT" \
     tmux attach-session -r -t "$TMUX_SESSION_NAME" &
-child_pids+=("$!")
+ttyd_child_pids+=("$!")
 
 if [ "$TMUX_WEB_INTERACTIVE_ENABLE" = "1" ]; then
     gosu dev ttyd "${ttyd_auth_args[@]}" -W -i "$TMUX_WEB_BIND_ADDRESS" -p "$TMUX_WEB_INTERACTIVE_PORT" \
         tmux attach-session -t "$TMUX_SESSION_NAME" &
-    child_pids+=("$!")
+    ttyd_child_pids+=("$!")
 fi
 
 wait -n
+status=$?
+if [ "$status" -ne 0 ]; then
+    echo "Error: A child process exited with status $status." >&2
+fi
+exit "$status"
