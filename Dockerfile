@@ -10,26 +10,17 @@ ARG TTYD_VERSION=1.7.7
 RUN apt-get update && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends \
     bash \
-    curl \
     ca-certificates \
     git \
     openssh-client \
-    jq \
-    ripgrep \
-    fd-find \
-    tree \
-    less \
-    build-essential \
-    procps \
     tmux \
-    locales \
     ufw \
     gosu \
-    && rm -rf /var/lib/apt/lists/* \
-    && sed -i '/en_US.UTF-8/s/^# //' /etc/locale.gen && locale-gen \
-    && ln -sf /usr/bin/fdfind /usr/local/bin/fd
+    && rm -rf /var/lib/apt/lists/*
 
 RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends curl; \
     arch="$(dpkg --print-architecture)"; \
     case "$arch" in \
         amd64) ttyd_asset="ttyd.x86_64" ;; \
@@ -43,10 +34,12 @@ RUN set -eux; \
     test -n "$expected_checksum"; \
     printf '%s  %s\n' "$expected_checksum" "/tmp/ttyd" | sha256sum -c -; \
     install -m 0755 /tmp/ttyd /usr/local/bin/ttyd; \
-    rm -f /tmp/ttyd /tmp/SHA256SUMS
+    rm -f /tmp/ttyd /tmp/SHA256SUMS; \
+    apt-get purge -y --auto-remove curl; \
+    rm -rf /var/lib/apt/lists/*
 
-ENV LANG=en_US.UTF-8
-ENV LC_ALL=en_US.UTF-8
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
 
 ARG USERNAME=dev
 ARG USER_UID=1000
