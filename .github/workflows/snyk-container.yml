@@ -41,12 +41,28 @@ jobs:
                   f
                 end;
             walk(
-              if type == "object" and has("security-severity") and .["security-severity"] == null
-              then .["security-severity"] = "0.0"
+              if type == "object" and has("properties") and (.properties | type) == "object"
+              then .properties["security-severity"] = (
+                if (.properties["security-severity"] | type) == "number" then
+                  (.properties["security-severity"] | tostring)
+                elif (.properties["security-severity"] | type) == "string"
+                  and (.properties["security-severity"] | test("^[0-9]+(\\.[0-9]+)?$"))
+                then
+                  .properties["security-severity"]
+                else
+                  "0.0"
+                end
+              )
               else .
               end
             )
           ' snyk.sarif > snyk-normalized.sarif
+      - name: Verify normalized SARIF
+        run: |
+          if jq -e '.. | objects | select(has("security-severity") and .["security-severity"] == null)' snyk-normalized.sarif >/dev/null; then
+            echo "Found null security-severity in normalized SARIF"
+            exit 1
+          fi
       - name: Upload result to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@58d4c8134bcf8ae089f888d056501755e0da2b44
         with:
