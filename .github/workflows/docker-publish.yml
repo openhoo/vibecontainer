@@ -174,7 +174,8 @@ jobs:
         run: |
           set -euo pipefail
           image_ref="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.tag.outputs.new_tag }}"
-          digest="$(docker buildx imagetools inspect "$image_ref" | awk '/^Digest:/ { print $2; exit }')"
+          inspect_output="$(docker buildx imagetools inspect "$image_ref")"
+          digest="$(awk '/^Digest:/ { print $2; exit }' <<< "$inspect_output")"
           if ! [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then
             echo "Error: failed to extract a valid image digest for $image_ref (got: '$digest')."
             exit 1
