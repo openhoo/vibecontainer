@@ -36,7 +36,8 @@ validate_ttyd_credential() {
             exit 1
             ;;
     esac
-    if ! printf '%s' "$cred" | grep -q ':'; then
+    # Use bash built-in pattern matching to avoid exposing credential in process listings
+    if [[ "$cred" != *:* ]]; then
         echo "Error: TTYD_CREDENTIAL must be in the form 'user:password'."
         exit 1
     fi
