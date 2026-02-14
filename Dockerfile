@@ -1,4 +1,4 @@
-FROM debian:13.3-slim
+FROM debian:13-slim
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -6,8 +6,9 @@ ARG TTYD_VERSION=1.7.7
 
 # Package versions are intentionally unpinned to consume Debian security updates
 # on image rebuilds while retaining a slim, provider-agnostic base image.
-# hadolint ignore=DL3008
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# hadolint ignore=DL3008,DL3005
+RUN apt-get update && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends \
     bash \
     curl \
     ca-certificates \
