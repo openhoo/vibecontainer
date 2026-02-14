@@ -18,6 +18,7 @@ RUN apt-get update && apt-get upgrade -y \
     gosu \
     && rm -rf /var/lib/apt/lists/*
 
+# hadolint ignore=DL3008
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends curl; \
