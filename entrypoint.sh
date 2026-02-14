@@ -95,20 +95,22 @@ export HOME="/home/dev"
 # ---------------------------------------------------------------------------
 # Build command
 # ---------------------------------------------------------------------------
-build_command() {
+quote_command_args() {
     local cmd
     if [ "$#" -eq 0 ]; then
-        cmd="bash -l"
-    else
-        cmd=""
+        # Default to an interactive login shell when no command is provided.
+        set -- bash -l
     fi
 
-    local arg
+    local arg first=1
+    cmd=""
     for arg in "$@"; do
-        if [ -n "$cmd" ]; then
-            cmd+=" "
+        if [ "$first" -eq 1 ]; then
+            cmd="$(printf '%q' "$arg")"
+            first=0
+        else
+            cmd+=" $(printf '%q' "$arg")"
         fi
-        cmd+="$(printf '%q' "$arg")"
     done
     printf '%s' "$cmd"
 }
@@ -117,7 +119,7 @@ build_command() {
 # Start tmux session
 # ---------------------------------------------------------------------------
 if ! gosu dev tmux has-session -t "$TMUX_SESSION_NAME" 2>/dev/null; then
-    gosu dev tmux -u new-session -d -s "$TMUX_SESSION_NAME" "$(build_command "$@")"
+    gosu dev tmux -u new-session -d -s "$TMUX_SESSION_NAME" "$(quote_command_args "$@")"
 fi
 
 # ---------------------------------------------------------------------------
@@ -142,7 +144,9 @@ cleanup() {
     for pid in "${child_pids[@]}"; do
         kill "$pid" 2>/dev/null || true
     done
-    wait "${child_pids[@]}" 2>/dev/null || true
+    if [ "${#child_pids[@]}" -gt 0 ]; then
+        wait "${child_pids[@]}" 2>/dev/null || true
+    fi
 }
 
 trap cleanup EXIT INT TERM
