@@ -173,9 +173,12 @@ jobs:
           TAGS: ${{ steps.meta.outputs.tags }}
         run: |
           set -euo pipefail
-          digest="$(docker buildx imagetools inspect \
-            "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.tag.outputs.new_tag }}" \
-            --format '{{.Manifest.Digest}}')"
+          image_ref="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.tag.outputs.new_tag }}"
+          digest="$(docker buildx imagetools inspect "$image_ref" | awk '/^Digest:/ { print $2; exit }')"
+          if ! [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+            echo "Error: failed to extract a valid image digest for $image_ref (got: '$digest')."
+            exit 1
+          fi
           while IFS= read -r tag; do
             [ -n "$tag" ] || continue
             cosign sign --yes "${tag}@${digest}"
