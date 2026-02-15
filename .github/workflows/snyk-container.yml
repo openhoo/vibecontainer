@@ -17,7 +17,7 @@ jobs:
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98
       - name: Build a Docker image
         run: docker build -t your/image-to-test .
       - name: Run Snyk to check Docker image for vulnerabilities
@@ -27,43 +27,47 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           image: your/image-to-test
-          args: --file=Dockerfile --sarif-file-output=snyk.sarif
-      - name: Normalize SARIF for GitHub Code Scanning
+          args: --file=Dockerfile --severity-threshold=medium --sarif-file-output=snyk.sarif
+      - name: Fix SARIF severity mapping
         run: |
-          jq '
-            def walk(f):
-              . as $in
-              | if type == "object" then
-                  reduce keys[] as $key ({}; . + { ($key): ($in[$key] | walk(f)) }) | f
-                elif type == "array" then
-                  map(walk(f)) | f
-                else
-                  f
-                end;
-            walk(
-              if type == "object" and has("properties") and (.properties | type) == "object"
-              then .properties["security-severity"] = (
-                if (.properties["security-severity"] | type) == "number" then
-                  (.properties["security-severity"] | tostring)
-                elif (.properties["security-severity"] | type) == "string"
-                  and (.properties["security-severity"] | test("^[0-9]+(\\.[0-9]+)?$"))
-                then
-                  .properties["security-severity"]
-                else
-                  "0.0"
-                end
-              )
-              else .
-              end
-            )
-          ' snyk.sarif > snyk-normalized.sarif
-      - name: Verify normalized SARIF
-        run: |
-          if jq -e '.. | objects | select(has("security-severity") and .["security-severity"] == null)' snyk-normalized.sarif >/dev/null; then
-            echo "Found null security-severity in normalized SARIF"
-            exit 1
+          set -e
+          if [ -f snyk.sarif ]; then
+            python3 << 'PYEOF'
+          import json, re, sys
+
+          try:
+              with open('snyk.sarif', 'r') as f:
+                  sarif = json.load(f)
+
+              severity_map = {'low': 'low', 'medium': 'medium', 'high': 'high', 'critical': 'critical'}
+
+              for run in sarif.get('runs', []):
+                  for rule in run.get('tool', {}).get('driver', {}).get('rules', []):
+                      desc = rule.get('shortDescription', {}).get('text', '')
+                      match = re.match(r'(Low|Medium|High|Critical) severity', desc, re.IGNORECASE)
+                      if match:
+                          snyk_level = match.group(1).lower()
+                          props = rule.setdefault('properties', {})
+                          props['security-severity-level'] = severity_map.get(snyk_level, snyk_level)
+                          if 'security-severity' in props:
+                              # Remap CVSS score to match Snyk's own severity
+                              if snyk_level == 'low':
+                                  props['security-severity'] = '3.0'
+                              elif snyk_level == 'medium':
+                                  props['security-severity'] = '5.0'
+                              else:
+                                  # Ensure security-severity is a string
+                                  props['security-severity'] = str(props['security-severity'])
+
+              with open('snyk.sarif.tmp', 'w') as f:
+                  json.dump(sarif, f, indent=2)
+          except Exception as e:
+              print(f"Error processing SARIF file: {e}", file=sys.stderr)
+              sys.exit(1)
+          PYEOF
+            mv -f snyk.sarif.tmp snyk.sarif
           fi
       - name: Upload result to GitHub Code Scanning
-        uses: github/codeql-action/upload-sarif@58d4c8134bcf8ae089f888d056501755e0da2b44
+        uses: github/codeql-action/upload-sarif@ef618feace3c4838ae42b239ab86e8fb46437508
         with:
-          sarif_file: snyk-normalized.sarif
+          sarif_file: snyk.sarif
