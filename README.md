@@ -163,15 +163,6 @@ Published from one package: `ghcr.io/openhoo/vibecontainer`
   - `codex-vX.Y.Z`
   - `codex-cli-<version>`
 
-## Migration
-
-`ghcr.io/openhoo/vibecontainer-claude:*` is deprecated.
-
-Use:
-- `ghcr.io/openhoo/vibecontainer:claude`
-- or a pinned tag such as `ghcr.io/openhoo/vibecontainer:claude-vX.Y.Z`
-- or `ghcr.io/openhoo/vibecontainer:claude-code-<version>`
-
 ## Security
 
 When `FIREWALL_ENABLE=1` (default), startup enables a strict `ufw` profile.

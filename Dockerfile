@@ -76,6 +76,7 @@ FROM base AS claude
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ARG USERNAME=dev
+# renovate: datasource=github-releases depName=anthropics/claude-code
 ARG CLAUDE_CODE_VERSION=2.1.42
 
 LABEL org.opencontainers.image.claude-code.version="${CLAUDE_CODE_VERSION}"
@@ -120,6 +121,7 @@ FROM base AS codex
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+# renovate: datasource=npm depName=@openai/codex
 ARG CODEX_VERSION=0.101.0
 
 LABEL org.opencontainers.image.codex.version="${CODEX_VERSION}"
