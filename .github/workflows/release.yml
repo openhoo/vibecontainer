@@ -535,6 +535,7 @@ jobs:
       - name: Set package version and publish
         working-directory: npm
         run: |
+          cp ../README.md .
           version="${{ needs.tag.outputs.new_tag }}"
           version="${version#v}"
           npm version "$version" --no-git-tag-version

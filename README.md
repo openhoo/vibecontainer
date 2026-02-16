@@ -1,15 +1,40 @@
 # Vibecontainer
 
+[![npm](https://img.shields.io/npm/v/@openhoo/vibecontainer)](https://www.npmjs.com/package/@openhoo/vibecontainer)
+
 `vibecontainer` is a provider-aware runtime for AI CLI workflows.
 
-This single repository now publishes:
-- base image
-- Claude flavor image
-- Codex flavor image
+## Install
 
-## Quick Start
+```sh
+curl -fsSL https://raw.githubusercontent.com/openhoo/vibecontainer/main/install.sh | sh
+```
 
-Run prebuilt images from GHCR:
+### npm
+
+```sh
+npm install -g @openhoo/vibecontainer
+```
+
+### Binary download
+
+Download a prebuilt binary from [GitHub Releases](https://github.com/openhoo/vibecontainer/releases/latest).
+
+| Platform | amd64 | arm64 |
+|----------|-------|-------|
+| Linux | `vibecontainer-linux-amd64` | `vibecontainer-linux-arm64` |
+| macOS | `vibecontainer-darwin-amd64` | `vibecontainer-darwin-arm64` |
+| Windows | `vibecontainer-windows-amd64.exe` | `vibecontainer-windows-arm64.exe` |
+
+### Nix
+
+```sh
+nix run github:openhoo/vibecontainer
+```
+
+### Docker
+
+Prebuilt images are published to GHCR with base, Claude, and Codex flavors:
 
 ```sh
 # Base
