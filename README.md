@@ -56,7 +56,9 @@ docker compose up -d
 docker exec -it vibecontainer tmux attach -t vibe
 ```
 
-Configure the tunnel's public hostname in the Cloudflare Zero Trust dashboard to point to `http://vibecontainer:7681` for the read-only stream or `http://vibecontainer:7682` for interactive access.
+Configure the tunnel's public hostname in the Cloudflare Zero Trust dashboard to point to `http://vibecontainer:7681` for the read-only stream. If you've enabled the interactive stream in your Docker configuration (for example by setting `TMUX_WEB_INTERACTIVE_ENABLE=1` and exposing port `7682`), you can instead point it to `http://vibecontainer:7682` for interactive access.
+
+When exposing `vibecontainer` via Cloudflare Tunnel (or any remote access), the ttyd endpoints are no longer protected by the localhost-only bindings used in the quick start examples. For remote access, you should configure basic authentication by setting `TTYD_CREDENTIAL` (for example in your `.env` file or `docker-compose.yml`) and/or enforce strong access controls in Cloudflare Zero Trust before making these endpoints publicly reachable.
 
 ## Common Commands
 

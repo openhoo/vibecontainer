@@ -2,7 +2,6 @@ services:
   vibecontainer:
     build: .
     container_name: vibecontainer
-    env_file: .env
     cap_add:
       - NET_ADMIN
       - NET_RAW
@@ -12,11 +11,11 @@ services:
       - "127.0.0.1:7681:7681"
       - "127.0.0.1:7682:7682"
     volumes:
-      - workspace:/workspace
+      - .:/workspace
     restart: unless-stopped
 
   cloudflared:
-    image: cloudflare/cloudflared:latest
+    image: cloudflare/cloudflared:2026.2.0
     container_name: cloudflared
     command: tunnel run
     environment:
@@ -24,6 +23,3 @@ services:
     depends_on:
       - vibecontainer
     restart: unless-stopped
-
-volumes:
-  workspace:
