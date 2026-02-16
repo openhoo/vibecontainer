@@ -1,11 +1,17 @@
 package keyring
 
 import (
+	"os"
 	"testing"
 
 	"github.com/openhoo/vibecontainer/internal/domain"
 	"github.com/zalando/go-keyring"
 )
+
+func TestMain(m *testing.M) {
+	keyring.MockInit()
+	os.Exit(m.Run())
+}
 
 func TestStoreSaveAndLoad(t *testing.T) {
 	// Use a test service name to avoid interfering with production credentials
