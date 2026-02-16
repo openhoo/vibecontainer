@@ -55,9 +55,11 @@ jobs:
 
           # workflow_dispatch: build everything
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "cli_changed=true" >> "$GITHUB_OUTPUT"
-            echo "flavors_json=$all_flavors" >> "$GITHUB_OUTPUT"
-            echo "any_docker=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "cli_changed=true"
+              echo "flavors_json=$all_flavors"
+              echo "any_docker=true"
+            } >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -65,9 +67,11 @@ jobs:
           head_sha="${{ github.sha }}"
 
           if [ -z "$base_sha" ] || [ "$base_sha" = "0000000000000000000000000000000000000000" ]; then
-            echo "cli_changed=true" >> "$GITHUB_OUTPUT"
-            echo "flavors_json=$all_flavors" >> "$GITHUB_OUTPUT"
-            echo "any_docker=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "cli_changed=true"
+              echo "flavors_json=$all_flavors"
+              echo "any_docker=true"
+            } >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -103,15 +107,19 @@ jobs:
 
           # If no docker-related files changed, skip Docker entirely
           if [ "$docker_files_changed" = "false" ]; then
-            echo 'flavors_json=[]' >> "$GITHUB_OUTPUT"
-            echo "any_docker=false" >> "$GITHUB_OUTPUT"
+            {
+              echo 'flavors_json=[]'
+              echo "any_docker=false"
+            } >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           # If non-Dockerfile docker files changed, build all flavors
           if [ "$only_dockerfile" -ne 1 ]; then
-            echo "flavors_json=$all_flavors" >> "$GITHUB_OUTPUT"
-            echo "any_docker=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "flavors_json=$all_flavors"
+              echo "any_docker=true"
+            } >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -135,32 +143,42 @@ jobs:
           )"
 
           if [ -n "$other_docker_changes" ]; then
-            echo "flavors_json=$all_flavors" >> "$GITHUB_OUTPUT"
-            echo "any_docker=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "flavors_json=$all_flavors"
+              echo "any_docker=true"
+            } >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           if [ "$claude_changed" -eq 1 ] && [ "$codex_changed" -eq 1 ]; then
-            echo 'flavors_json=["claude","codex"]' >> "$GITHUB_OUTPUT"
-            echo "any_docker=true" >> "$GITHUB_OUTPUT"
+            {
+              echo 'flavors_json=["claude","codex"]'
+              echo "any_docker=true"
+            } >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           if [ "$claude_changed" -eq 1 ]; then
-            echo 'flavors_json=["claude"]' >> "$GITHUB_OUTPUT"
-            echo "any_docker=true" >> "$GITHUB_OUTPUT"
+            {
+              echo 'flavors_json=["claude"]'
+              echo "any_docker=true"
+            } >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           if [ "$codex_changed" -eq 1 ]; then
-            echo 'flavors_json=["codex"]' >> "$GITHUB_OUTPUT"
-            echo "any_docker=true" >> "$GITHUB_OUTPUT"
+            {
+              echo 'flavors_json=["codex"]'
+              echo "any_docker=true"
+            } >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           # Dockerfile changed but no version ARGs changed and no other changes
-          echo "flavors_json=$all_flavors" >> "$GITHUB_OUTPUT"
-          echo "any_docker=true" >> "$GITHUB_OUTPUT"
+          {
+            echo "flavors_json=$all_flavors"
+            echo "any_docker=true"
+          } >> "$GITHUB_OUTPUT"
 
   # ---------------------------------------------------------------------------
   # CLI binary build
