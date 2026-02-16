@@ -1,0 +1,28 @@
+{
+  "name": "@openhoo/vibecontainer",
+  "version": "0.0.0",
+  "description": "Manage vibecontainer development environment stacks",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/openhoo/vibecontainer.git"
+  },
+  "bin": {
+    "vibecontainer": "run.js"
+  },
+  "scripts": {
+    "postinstall": "node install.js"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "engines": {
+    "node": ">=16"
+  }
+}
