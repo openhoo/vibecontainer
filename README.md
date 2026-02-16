@@ -41,6 +41,23 @@ open http://127.0.0.1:7681
 docker exec -it vibecontainer tmux attach -t vibe
 ```
 
+## Docker Compose
+
+A `docker-compose.yml` is provided to run `vibecontainer` alongside a [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) (`cloudflared`) for remote access.
+
+```sh
+# 1. Create .env with your Cloudflare Tunnel token
+echo "TUNNEL_TOKEN=your-tunnel-token" > .env
+
+# 2. Start both services
+docker compose up -d
+
+# 3. Attach to the tmux session
+docker exec -it vibecontainer tmux attach -t vibe
+```
+
+Configure the tunnel's public hostname in the Cloudflare Zero Trust dashboard to point to `http://vibecontainer:7681` for the read-only stream or `http://vibecontainer:7682` for interactive access.
+
 ## Common Commands
 
 | Command | Description |

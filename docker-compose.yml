@@ -1,0 +1,29 @@
+services:
+  vibecontainer:
+    build: .
+    container_name: vibecontainer
+    env_file: .env
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    environment:
+      - TMUX_WEB_ENABLE=1
+    ports:
+      - "127.0.0.1:7681:7681"
+      - "127.0.0.1:7682:7682"
+    volumes:
+      - workspace:/workspace
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    depends_on:
+      - vibecontainer
+    restart: unless-stopped
+
+volumes:
+  workspace:
