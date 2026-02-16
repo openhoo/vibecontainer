@@ -41,6 +41,10 @@ jobs:
         platform:
           - linux/amd64
           - linux/arm64
+        flavor:
+          - base
+          - claude
+          - codex
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -67,23 +71,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract Docker metadata
-        id: meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-
       - name: Build and push by digest
         id: build
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
+          target: ${{ matrix.flavor }}
           platforms: ${{ matrix.platform }}
-          labels: ${{ steps.meta.outputs.labels }}
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           outputs: type=image,push-by-digest=true,name-canonical=true,push=true
-          cache-from: type=gha,scope=${{ env.PLATFORM_PAIR }}
-          cache-to: type=gha,mode=max,scope=${{ env.PLATFORM_PAIR }}
+          cache-from: type=gha,scope=${{ matrix.flavor }}-${{ env.PLATFORM_PAIR }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.flavor }}-${{ env.PLATFORM_PAIR }}
 
       - name: Export digest
         run: |
@@ -94,7 +92,7 @@ jobs:
       - name: Upload digest
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
-          name: digests-${{ env.PLATFORM_PAIR }}
+          name: digests-${{ matrix.flavor }}-${{ env.PLATFORM_PAIR }}
           path: ${{ runner.temp }}/digests/*
           if-no-files-found: error
           retention-days: 1
@@ -104,6 +102,13 @@ jobs:
     needs:
       - tag
       - build
+    strategy:
+      fail-fast: false
+      matrix:
+        flavor:
+          - base
+          - claude
+          - codex
     permissions:
       contents: read
       packages: write
@@ -113,7 +118,7 @@ jobs:
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           path: ${{ runner.temp }}/digests
-          pattern: digests-*
+          pattern: digests-${{ matrix.flavor }}-*
           merge-multiple: true
 
       - name: Log into registry ${{ env.REGISTRY }}
@@ -126,30 +131,65 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
-      - name: Extract Docker metadata
-        id: meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=raw,value=${{ needs.tag.outputs.new_tag }}
-            type=raw,value=latest
-            type=sha
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Extract provider versions
+        id: versions
+        run: |
+          claude="$(sed -n 's/^ARG CLAUDE_CODE_VERSION=//p' Dockerfile)"
+          codex="$(sed -n 's/^ARG CODEX_VERSION=//p' Dockerfile)"
+          if [ -z "$claude" ] || [ -z "$codex" ]; then
+            echo "Error: failed to extract CLAUDE_CODE_VERSION or CODEX_VERSION from Dockerfile."
+            exit 1
+          fi
+          echo "claude=$claude" >> "$GITHUB_OUTPUT"
+          echo "codex=$codex" >> "$GITHUB_OUTPUT"
 
       - name: Create manifest list and push
+        id: manifest
         working-directory: ${{ runner.temp }}/digests
+        env:
+          NEW_TAG: ${{ needs.tag.outputs.new_tag }}
+          FLAVOR: ${{ matrix.flavor }}
+          CLAUDE_VERSION: ${{ steps.versions.outputs.claude }}
+          CODEX_VERSION: ${{ steps.versions.outputs.codex }}
         run: |
           set -euo pipefail
-          mapfile -t tags < <(jq -r '.tags[]' <<< "$DOCKER_METADATA_OUTPUT_JSON")
-          tag_args=()
-          for tag in "${tags[@]}"; do
-            tag_args+=("-t" "$tag")
-          done
+          image="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+
+          case "$FLAVOR" in
+            base)
+              tags=(
+                "${image}:${NEW_TAG}"
+                "${image}:latest"
+                "${image}:sha-${GITHUB_SHA}"
+              )
+              ;;
+            claude)
+              tags=(
+                "${image}:claude"
+                "${image}:claude-${NEW_TAG}"
+                "${image}:claude-code-${CLAUDE_VERSION}"
+              )
+              ;;
+            codex)
+              tags=(
+                "${image}:codex"
+                "${image}:codex-${NEW_TAG}"
+                "${image}:codex-cli-${CODEX_VERSION}"
+              )
+              ;;
+            *)
+              echo "Error: unsupported flavor '$FLAVOR'."
+              exit 1
+              ;;
+          esac
 
           digest_refs=()
           for digest_file in *; do
             [ -f "$digest_file" ] || continue
-            digest_refs+=("${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@sha256:${digest_file}")
+            digest_refs+=("${image}@sha256:${digest_file}")
           done
 
           if [ "${#digest_refs[@]}" -eq 0 ]; then
@@ -157,11 +197,23 @@ jobs:
             exit 1
           fi
 
+          tag_args=()
+          for tag in "${tags[@]}"; do
+            tag_args+=("-t" "$tag")
+          done
+
           docker buildx imagetools create "${tag_args[@]}" "${digest_refs[@]}"
+
+          echo "primary_tag=${tags[0]}" >> "$GITHUB_OUTPUT"
+          {
+            echo "tags<<EOF"
+            printf '%s\n' "${tags[@]}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Inspect image
         run: |
-          docker buildx imagetools inspect "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.tag.outputs.new_tag }}"
+          docker buildx imagetools inspect "${{ steps.manifest.outputs.primary_tag }}"
 
       - name: Install cosign
         uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
@@ -170,14 +222,14 @@ jobs:
 
       - name: Sign the published Docker image
         env:
-          TAGS: ${{ steps.meta.outputs.tags }}
+          TAGS: ${{ steps.manifest.outputs.tags }}
+          PRIMARY_TAG: ${{ steps.manifest.outputs.primary_tag }}
         run: |
           set -euo pipefail
-          image_ref="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.tag.outputs.new_tag }}"
-          inspect_output="$(docker buildx imagetools inspect "$image_ref")"
+          inspect_output="$(docker buildx imagetools inspect "$PRIMARY_TAG")"
           digest="$(awk '/^Digest:/ { print $2; exit }' <<< "$inspect_output")"
           if ! [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then
-            echo "Error: failed to extract a valid image digest for $image_ref (got: '$digest')."
+            echo "Error: failed to extract a valid image digest for $PRIMARY_TAG (got: '$digest')."
             exit 1
           fi
           while IFS= read -r tag; do

@@ -1,181 +1,193 @@
 # Vibecontainer
 
-`vibecontainer` is a provider-agnostic base runtime for AI CLI workflows.
+`vibecontainer` is a provider-aware runtime for AI CLI workflows.
 
-This repository contains the base image for vibecoding containers and is the shared foundation for:
-- [claude-container](https://github.com/openhoo/claude-container)
-- [codex-container](https://github.com/openhoo/codex-container)
-- [gemini-container](https://github.com/openhoo/gemini-container)
-
-It provides:
-- Debian-based development environment
-- non-root `dev` user and `/workspace` working directory
-- `tmux` session lifecycle management
-- optional browser streaming via `ttyd`
-- strict-by-default `ufw` firewall policy
-
-It does not install provider-specific CLIs (Claude, Codex, etc.).
+This single repository now publishes:
+- base image
+- Claude flavor image
+- Codex flavor image
 
 ## Quick Start
 
+Run prebuilt images from GHCR:
+
 ```sh
-# 1. Clone the repository
-git clone https://github.com/openhoo/vibecontainer.git && cd vibecontainer
-
-# 2. Create .env (required by docker run --env-file)
-touch .env
-
-# 3. Build and run
-docker build -t vibecontainer .
-docker run -d --name vibecontainer --env-file .env \
+# Base
+docker run -d --name vibecontainer \
   --cap-add NET_ADMIN --cap-add NET_RAW \
   -e TMUX_WEB_ENABLE=1 \
   -p 127.0.0.1:7681:7681 \
-  -v "$(pwd):/workspace" \
-  vibecontainer
-
-# 4. Open read-only stream
-open http://127.0.0.1:7681
-
-# Or attach directly
-docker exec -it vibecontainer tmux attach -t vibe
+  ghcr.io/openhoo/vibecontainer:latest
 ```
 
-## Docker Compose
-
-A `docker-compose.yml` is provided to run `vibecontainer` alongside a [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) (`cloudflared`) for remote access.
-
 ```sh
-# 1. Create .env with your Cloudflare Tunnel token
-echo "TUNNEL_TOKEN=your-tunnel-token" > .env
-
-# 2. Start both services
-docker compose up -d
-
-# 3. Attach to the tmux session
-docker exec -it vibecontainer tmux attach -t vibe
+# Claude flavor
+docker run -d --name vibecontainer-claude \
+  --cap-add NET_ADMIN --cap-add NET_RAW \
+  -e CLAUDE_CODE_OAUTH_TOKEN=<your-token> \
+  -e TMUX_WEB_ENABLE=1 \
+  -p 127.0.0.1:7681:7681 \
+  ghcr.io/openhoo/vibecontainer:claude
 ```
 
-Configure the tunnel's public hostname in the Cloudflare Zero Trust dashboard to point to `http://vibecontainer:7681` for the read-only stream. If you've enabled the interactive stream in your Docker configuration (for example by setting `TMUX_WEB_INTERACTIVE_ENABLE=1` and exposing port `7682`), you can instead point it to `http://vibecontainer:7682` for interactive access.
-
-When exposing `vibecontainer` via Cloudflare Tunnel (or any remote access), the ttyd endpoints are no longer protected by the localhost-only bindings used in the quick start examples. For remote access, you should configure basic authentication by setting `TTYD_CREDENTIAL` (for example in your `.env` file or `docker-compose.yml`) and/or enforce strong access controls in Cloudflare Zero Trust before making these endpoints publicly reachable.
-
-## Common Commands
-
-| Command | Description |
-|--------|-------------|
-| `docker build -t vibecontainer .` | Build the Docker image |
-| `docker run -d --name vibecontainer --env-file .env --cap-add NET_ADMIN --cap-add NET_RAW -e TMUX_WEB_ENABLE=1 -p 127.0.0.1:7681:7681 -v "$(pwd):/workspace" vibecontainer` | Run with strict firewall + read-only browser stream |
-| `docker run -d --name vibecontainer --env-file .env --cap-add NET_ADMIN --cap-add NET_RAW -e TMUX_WEB_ENABLE=1 -e TMUX_WEB_INTERACTIVE_ENABLE=1 -p 127.0.0.1:7681:7681 -p 127.0.0.1:7682:7682 -v "$(pwd):/workspace" vibecontainer` | Run with strict firewall + read-only + interactive streams |
-| `docker run -d --name vibecontainer --env-file .env -e FIREWALL_ENABLE=0 -e TMUX_WEB_ENABLE=1 -p 127.0.0.1:7681:7681 -v "$(pwd):/workspace" vibecontainer` | Run without firewall setup/capabilities |
-| `docker run -d --name vibecontainer --env-file .env -e FIREWALL_ENABLE=0 -e TMUX_WEB_ENABLE=1 -e TMUX_WEB_INTERACTIVE_ENABLE=1 -p 127.0.0.1:7681:7681 -p 127.0.0.1:7682:7682 -v "$(pwd):/workspace" vibecontainer` | Interactive run without firewall setup/capabilities |
-| `docker exec -it vibecontainer tmux attach -t vibe` | Attach to the tmux session |
-| `docker build -t vibecontainer . && docker run -d --name vibecontainer --env-file .env --cap-add NET_ADMIN --cap-add NET_RAW -e TMUX_WEB_ENABLE=1 -p 127.0.0.1:7681:7681 -v "$(pwd):/workspace" vibecontainer && docker exec -it vibecontainer tmux attach -t vibe` | Build, run, and attach in one step |
-| `docker rm -f vibecontainer` | Stop and remove the container |
-| `docker logs -f vibecontainer` | Tail container logs |
-| `docker exec -it vibecontainer bash -l` | Open a bash shell in the container |
-
-## Browser Endpoints
-
-| Endpoint | Default | Description |
-|----------|---------|-------------|
-| Read-only | [http://127.0.0.1:7681](http://127.0.0.1:7681) | View-only terminal stream |
-| Interactive | [http://127.0.0.1:7682](http://127.0.0.1:7682) | Full terminal access (opt-in) |
-
-## Workspace
-
-The container uses `/workspace` as its working directory. Mount your project there:
-
 ```sh
-docker run -d --name vibecontainer --env-file .env \
+# Codex flavor
+docker run -d --name vibecontainer-codex \
   --cap-add NET_ADMIN --cap-add NET_RAW \
   -e TMUX_WEB_ENABLE=1 \
   -p 127.0.0.1:7681:7681 \
-  -v "$(pwd)/my-project:/workspace" \
-  vibecontainer
+  ghcr.io/openhoo/vibecontainer:codex
 ```
+
+Open read-only stream: [http://127.0.0.1:7681](http://127.0.0.1:7681)
+
+## Build from Source
+
+```sh
+git clone https://github.com/openhoo/vibecontainer.git
+cd vibecontainer
+```
+
+```sh
+# Base target
+docker build --target base -t vibecontainer:base-local .
+
+# Claude target
+docker build --target claude -t vibecontainer:claude-local .
+
+# Codex target
+docker build --target codex -t vibecontainer:codex-local .
+```
+
+## Runtime Behavior
+
+`entrypoint.sh` continues to own tmux, ttyd, and firewall lifecycle for all images.
+
+Flavor images use `claude-entrypoint.sh` / `codex-entrypoint.sh`, both backed by
+shared logic in `provider-entrypoint-base.sh`:
+- if command args are passed, args are used directly
+- if no args are passed, provider CLI auto-starts
 
 ## Environment Variables
+
+### Shared (`base`, `claude`, `codex`)
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `TMUX_SESSION_NAME` | `vibe` | Name of the tmux session |
 | `TMUX_WEB_ENABLE` | `0` | Enable ttyd browser streaming |
-| `TMUX_WEB_BIND_ADDRESS` | `0.0.0.0` | Bind address for ttyd inside the container |
+| `TMUX_WEB_BIND_ADDRESS` | `0.0.0.0` | Bind address for ttyd inside container |
 | `TMUX_WEB_READONLY_PORT` | `7681` | Read-only stream port |
-| `TMUX_WEB_INTERACTIVE_ENABLE` | `0` | Enable the interactive stream |
+| `TMUX_WEB_INTERACTIVE_ENABLE` | `0` | Enable interactive stream |
 | `TMUX_WEB_INTERACTIVE_PORT` | `7682` | Interactive stream port |
 | `TTYD_CREDENTIAL` | *(none)* | Basic auth for ttyd (`user:password`) |
 | `FIREWALL_ENABLE` | `1` | `1` enables strict ufw policy, `0` skips firewall setup |
 
-## Security
+All `*_FILE` variables are strict. If set, they must point to a readable file or startup exits with an error.
 
-### Permissions
+### Claude flavor only
 
-The container runs commands inside tmux as a non-root user (`dev`). Root is only used during startup to optionally configure firewall rules.
+| Variable | Description |
+|----------|-------------|
+| `CLAUDE_CODE_OAUTH_TOKEN` | Claude Code OAuth token |
+| `CLAUDE_CODE_OAUTH_TOKEN_FILE` | Path to mounted file containing OAuth token |
+| `ANTHROPIC_API_KEY` | Anthropic API key for Claude API auth |
+| `ANTHROPIC_API_KEY_FILE` | Path to mounted file containing Anthropic API key |
 
-Note: `docker exec` defaults to root. Use `-u dev` for non-root shells:
+Claude auth is only required when the startup command is `claude` (default or explicit command), and accepts either OAuth or Anthropic API key auth.
+
+### Codex flavor only
+
+| Variable | Description |
+|----------|-------------|
+| `CODEX_AUTH_JSON` | Full Codex auth JSON payload to write to `/home/dev/.codex/auth.json` |
+| `CODEX_AUTH_JSON_FILE` | Path to mounted file containing full Codex auth JSON payload |
+| `OPENAI_API_KEY` | OpenAI API key (supported by Codex) |
+| `OPENAI_API_KEY_FILE` | Path to mounted file containing OpenAI API key |
+| `CODEX_API_KEY` | Codex-specific API key env alias supported by Codex |
+| `CODEX_API_KEY_FILE` | Path to mounted file containing Codex API key |
+
+Codex auth precedence when launching `codex`:
+1. `CODEX_AUTH_JSON` / `CODEX_AUTH_JSON_FILE`
+2. API keys (`OPENAI_API_KEY*`, `CODEX_API_KEY*`)
+
+`CODEX_AUTH_JSON*` must be valid JSON object with one supported auth shape:
+- API key shape: `OPENAI_API_KEY` is a non-empty string
+- Token shape: `tokens.id_token`, `tokens.access_token`, and `tokens.refresh_token` are strings
+- Optional `auth_mode` (if set) must be one of: `apikey`, `chatgpt`, `chatgptAuthTokens`
+
+Malformed explicit OAuth input (invalid file path, invalid JSON, or invalid shape) fails startup with a clear error.
+
+Examples:
 
 ```sh
-docker exec -it -u dev vibecontainer bash -l
+# OAuth via full auth.json payload (recommended)
+docker run --rm -it \
+  -e CODEX_AUTH_JSON_FILE=/run/secrets/codex_auth.json \
+  -v "$(pwd)/codex_auth.json:/run/secrets/codex_auth.json:ro" \
+  ghcr.io/openhoo/vibecontainer:codex
 ```
 
-### Network Firewall
+```json
+{
+  "auth_mode": "chatgptAuthTokens",
+  "tokens": {
+    "id_token": "<jwt>",
+    "access_token": "<jwt>",
+    "refresh_token": ""
+  }
+}
+```
 
-When `FIREWALL_ENABLE=1` (default), the container enables `ufw` at startup with restrictive defaults:
+```sh
+# API key mode
+docker run --rm -it \
+  -e OPENAI_API_KEY=<your-api-key> \
+  ghcr.io/openhoo/vibecontainer:codex
+```
 
-| Direction | Port | Protocol | Purpose |
-|-----------|------|----------|---------|
-| Outbound | 53 | TCP/UDP | DNS resolution |
-| Outbound | 80 | TCP | HTTP |
-| Outbound | 443 | TCP | HTTPS |
-| Outbound | 22 | TCP | SSH (e.g., Git over SSH) |
-| Inbound | `TMUX_WEB_READONLY_PORT` | TCP | ttyd read-only stream (when web enabled) |
-| Inbound | `TMUX_WEB_INTERACTIVE_PORT` | TCP | ttyd interactive stream (when enabled) |
-| Loopback | — | All | Localhost inter-process communication |
+## Tags
 
-`FIREWALL_ENABLE=1` requires `NET_ADMIN` and `NET_RAW` capabilities.
+Published from one package: `ghcr.io/openhoo/vibecontainer`
 
-For local development, you can explicitly bypass firewall setup with `FIREWALL_ENABLE=0`.
+- base image:
+  - `latest`
+  - `vX.Y.Z`
+  - `sha-<commit>`
+- Claude flavor:
+  - `claude`
+  - `claude-vX.Y.Z`
+  - `claude-code-<version>`
+- Codex flavor:
+  - `codex`
+  - `codex-vX.Y.Z`
+  - `codex-cli-<version>`
 
-### Browser Streaming
+## Migration
 
-The `ttyd` web terminal has no authentication by default. Security relies on:
+`ghcr.io/openhoo/vibecontainer-claude:*` is deprecated.
 
-1. localhost-only port binding in provided `docker run` examples
-2. optional basic auth via `TTYD_CREDENTIAL`
-3. interactive stream disabled unless explicitly enabled
+Use:
+- `ghcr.io/openhoo/vibecontainer:claude`
+- or a pinned tag such as `ghcr.io/openhoo/vibecontainer:claude-vX.Y.Z`
+- or `ghcr.io/openhoo/vibecontainer:claude-code-<version>`
+
+## Security
+
+When `FIREWALL_ENABLE=1` (default), startup enables a strict `ufw` profile.
+This requires Docker capabilities:
+- `NET_ADMIN`
+- `NET_RAW`
+
+For local development, you can bypass firewall setup with `FIREWALL_ENABLE=0`.
+
+## CI Quality Gates
+
+Pull requests and pushes to `main` run:
+- `actionlint` for workflow validation
+- `shellcheck` for shell scripts
+- `hadolint` for Dockerfile
 
 ## License
 
 MIT
-
-## Provider Extension Contract
-
-`vibecontainer` owns tmux/web/firewall lifecycle. Provider repos should customize startup via container args or Docker `CMD` only.
-Guidance:
-
-1. Set provider command in Docker `CMD` (or pass args at runtime).
-2. Keep base `ENTRYPOINT` unchanged unless you need non-standard behavior.
-3. Reuse base env knobs (`TMUX_*`, `TTYD_CREDENTIAL`, `FIREWALL_ENABLE`) instead of duplicating lifecycle logic.
-
-## Versioning and Pinning
-
-Base images are intended to publish semver tags (`vX.Y.Z`) plus `latest`.
-The publish workflow also emits a commit-`sha` tag for traceability.
-
-Provider images should pin to base semver tags for reproducibility, instead of relying only on `latest`.
-
-## CI Quality Gates
-
-Pull requests and pushes to `main` run lint checks in GitHub Actions:
-- `actionlint` for workflow validation
-- `shellcheck` for `entrypoint.sh`
-- `hadolint` for `Dockerfile`
-
-## Provider Repos
-
-This base image is intended to be consumed by:
-- [claude-container](https://github.com/openhoo/claude-container)
-- [codex-container](https://github.com/openhoo/codex-container)
-- [gemini-container](https://github.com/openhoo/gemini-container)

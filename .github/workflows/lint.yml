@@ -16,7 +16,11 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Validate shell syntax
-        run: bash -n entrypoint.sh
+        run: |
+          bash -n entrypoint.sh
+          bash -n provider-entrypoint-base.sh
+          bash -n claude-entrypoint.sh
+          bash -n codex-entrypoint.sh
 
       - name: Run actionlint
         run: |
@@ -28,7 +32,7 @@ jobs:
         run: |
           docker run --rm -v "${PWD}:/repo" -w /repo \
             koalaman/shellcheck@sha256:bb596a0d169b85ddd81d8b6d3a2ff6d5baf5fca10b97f575ebc647c3dff62b3d \
-            entrypoint.sh
+            entrypoint.sh provider-entrypoint-base.sh claude-entrypoint.sh codex-entrypoint.sh
 
       - name: Run hadolint
         run: |
