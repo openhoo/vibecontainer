@@ -148,7 +148,7 @@ func RunCreateWizard(defaults domain.Defaults, seed domain.CreateOptions) (Resul
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Claude OAuth Token").
-				Password(true).
+				EchoMode(huh.EchoModePassword).
 				Value(&newClaudeOAuth).
 				Validate(notEmpty("oauth token is required")),
 		).WithHideFunc(func() bool { return provider != "claude" || claudeAuthMethod != "oauth" || useExistingClaudeOAuth }),
@@ -164,7 +164,7 @@ func RunCreateWizard(defaults domain.Defaults, seed domain.CreateOptions) (Resul
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Anthropic API Key").
-				Password(true).
+				EchoMode(huh.EchoModePassword).
 				Value(&newAnthropicKey).
 				Validate(notEmpty("api key is required")),
 		).WithHideFunc(func() bool { return provider != "claude" || claudeAuthMethod != "apikey" || useExistingAnthropicKey }),
@@ -193,7 +193,7 @@ func RunCreateWizard(defaults domain.Defaults, seed domain.CreateOptions) (Resul
 		huh.NewGroup(
 			huh.NewInput().
 				Title("OpenAI API Key").
-				Password(true).
+				EchoMode(huh.EchoModePassword).
 				Value(&newOpenAIKey).
 				Validate(notEmpty("api key is required")),
 		).WithHideFunc(func() bool { return provider != "codex" || codexAuthMethod != "openai" || useExistingOpenAIKey }),
@@ -209,7 +209,7 @@ func RunCreateWizard(defaults domain.Defaults, seed domain.CreateOptions) (Resul
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Codex API Key").
-				Password(true).
+				EchoMode(huh.EchoModePassword).
 				Value(&newCodexKey).
 				Validate(notEmpty("api key is required")),
 		).WithHideFunc(func() bool { return provider != "codex" || codexAuthMethod != "codex_key" || useExistingCodexKey }),
@@ -225,7 +225,7 @@ func RunCreateWizard(defaults domain.Defaults, seed domain.CreateOptions) (Resul
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Codex Auth JSON").
-				Password(true).
+				EchoMode(huh.EchoModePassword).
 				Value(&newCodexAuth).
 				Validate(notEmpty("auth json is required")),
 		).WithHideFunc(func() bool { return provider != "codex" || codexAuthMethod != "auth_json" || useExistingCodexAuth }),
@@ -278,7 +278,7 @@ func RunCreateWizard(defaults domain.Defaults, seed domain.CreateOptions) (Resul
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Cloudflare Tunnel Token").
-				Password(true).
+				EchoMode(huh.EchoModePassword).
 				Value(&newTunnelToken).
 				Validate(notEmpty("tunnel token is required")),
 		).WithHideFunc(func() bool { return !tunnelEnable || useExistingTunnelToken }),
