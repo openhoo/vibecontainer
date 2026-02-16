@@ -12,7 +12,7 @@ func TestCreateOptionsCodexValid(t *testing.T) {
 		WorkspacePath:   t.TempDir(),
 		Provider:        domain.ProviderCodex,
 		ReadOnlyPort:    7681,
-		Interactive:     false,
+		TmuxAccess:      "read",
 		InteractivePort: 7682,
 		FirewallEnable:  true,
 		TunnelEnable:    true,
@@ -32,7 +32,7 @@ func TestCreateOptionsClaudeMissingAuth(t *testing.T) {
 		WorkspacePath:   t.TempDir(),
 		Provider:        domain.ProviderClaude,
 		ReadOnlyPort:    7681,
-		Interactive:     false,
+		TmuxAccess:      "read",
 		InteractivePort: 7682,
 		FirewallEnable:  true,
 		TunnelEnable:    true,
@@ -55,7 +55,7 @@ func TestCreateOptionsAllowsNoWorkspace(t *testing.T) {
 		Name:            "demo-stack",
 		Provider:        domain.ProviderCodex,
 		ReadOnlyPort:    7681,
-		Interactive:     false,
+		TmuxAccess:      "read",
 		InteractivePort: 7682,
 		FirewallEnable:  true,
 		TunnelEnable:    true,
@@ -69,12 +69,38 @@ func TestCreateOptionsAllowsNoWorkspace(t *testing.T) {
 	}
 }
 
+func TestStackNameRejectsTrailingHyphen(t *testing.T) {
+	opts := domain.CreateOptions{
+		Name:         "my-stack-",
+		Provider:     domain.ProviderCodex,
+		ReadOnlyPort: 7681,
+		TmuxAccess:   "none",
+		Auth:         domain.Auth{OpenAIAPIKey: "sk-123"},
+	}
+	if err := CreateOptions(opts); err == nil {
+		t.Fatal("expected error for trailing hyphen in name")
+	}
+}
+
+func TestStackNameRejectsSingleChar(t *testing.T) {
+	opts := domain.CreateOptions{
+		Name:         "a",
+		Provider:     domain.ProviderCodex,
+		ReadOnlyPort: 7681,
+		TmuxAccess:   "none",
+		Auth:         domain.Auth{OpenAIAPIKey: "sk-123"},
+	}
+	if err := CreateOptions(opts); err == nil {
+		t.Fatal("expected error for single-char name")
+	}
+}
+
 func TestCreateOptionsValidWithoutTunnel(t *testing.T) {
 	opts := domain.CreateOptions{
 		Name:            "demo-stack",
 		Provider:        domain.ProviderCodex,
 		ReadOnlyPort:    7681,
-		Interactive:     false,
+		TmuxAccess:      "read",
 		InteractivePort: 7682,
 		FirewallEnable:  true,
 		TunnelEnable:    false,

@@ -55,37 +55,41 @@ func ComposeYAML(opts domain.CreateOptions) ([]byte, string, error) {
 		image = DefaultImage(opts.Provider)
 	}
 
+	tmuxEnabled := opts.TmuxAccess == "read" || opts.TmuxAccess == "write"
 	env := map[string]string{
-		"TMUX_WEB_ENABLE":             "1",
-		"TMUX_WEB_INTERACTIVE_ENABLE": boolTo01(opts.Interactive),
+		"TMUX_WEB_ENABLE":             boolTo01(tmuxEnabled),
+		"TMUX_WEB_INTERACTIVE_ENABLE": boolTo01(opts.TmuxAccess == "write"),
 		"FIREWALL_ENABLE":             boolTo01(opts.FirewallEnable),
 	}
 	if opts.TTYDCredential != "" {
-		env["TTYD_CREDENTIAL"] = opts.TTYDCredential
+		env["TTYD_CREDENTIAL"] = "${TTYD_CREDENTIAL}"
 	}
 
 	switch opts.Provider {
 	case domain.ProviderClaude:
 		if opts.Auth.ClaudeOAuthToken != "" {
-			env["CLAUDE_CODE_OAUTH_TOKEN"] = opts.Auth.ClaudeOAuthToken
+			env["CLAUDE_CODE_OAUTH_TOKEN"] = "${CLAUDE_CODE_OAUTH_TOKEN}"
 		}
 		if opts.Auth.AnthropicAPIKey != "" {
-			env["ANTHROPIC_API_KEY"] = opts.Auth.AnthropicAPIKey
+			env["ANTHROPIC_API_KEY"] = "${ANTHROPIC_API_KEY}"
 		}
 	case domain.ProviderCodex:
 		if opts.Auth.CodexAuthJSON != "" {
-			env["CODEX_AUTH_JSON"] = opts.Auth.CodexAuthJSON
+			env["CODEX_AUTH_JSON"] = "${CODEX_AUTH_JSON}"
 		}
 		if opts.Auth.OpenAIAPIKey != "" {
-			env["OPENAI_API_KEY"] = opts.Auth.OpenAIAPIKey
+			env["OPENAI_API_KEY"] = "${OPENAI_API_KEY}"
 		}
 		if opts.Auth.CodexAPIKey != "" {
-			env["CODEX_API_KEY"] = opts.Auth.CodexAPIKey
+			env["CODEX_API_KEY"] = "${CODEX_API_KEY}"
 		}
 	}
 
-	ports := []string{fmt.Sprintf("127.0.0.1:%d:7681", opts.ReadOnlyPort)}
-	if opts.Interactive {
+	var ports []string
+	if tmuxEnabled {
+		ports = append(ports, fmt.Sprintf("127.0.0.1:%d:7681", opts.ReadOnlyPort))
+	}
+	if opts.TmuxAccess == "write" {
 		ports = append(ports, fmt.Sprintf("127.0.0.1:%d:7682", opts.InteractivePort))
 	}
 
@@ -132,6 +136,28 @@ func EnvFile(opts domain.CreateOptions) []byte {
 	env := map[string]string{}
 	if opts.TunnelEnable && strings.TrimSpace(opts.Auth.TunnelToken) != "" {
 		env["TUNNEL_TOKEN"] = opts.Auth.TunnelToken
+	}
+	if opts.TTYDCredential != "" {
+		env["TTYD_CREDENTIAL"] = opts.TTYDCredential
+	}
+	switch opts.Provider {
+	case domain.ProviderClaude:
+		if opts.Auth.ClaudeOAuthToken != "" {
+			env["CLAUDE_CODE_OAUTH_TOKEN"] = opts.Auth.ClaudeOAuthToken
+		}
+		if opts.Auth.AnthropicAPIKey != "" {
+			env["ANTHROPIC_API_KEY"] = opts.Auth.AnthropicAPIKey
+		}
+	case domain.ProviderCodex:
+		if opts.Auth.CodexAuthJSON != "" {
+			env["CODEX_AUTH_JSON"] = opts.Auth.CodexAuthJSON
+		}
+		if opts.Auth.OpenAIAPIKey != "" {
+			env["OPENAI_API_KEY"] = opts.Auth.OpenAIAPIKey
+		}
+		if opts.Auth.CodexAPIKey != "" {
+			env["CODEX_API_KEY"] = opts.Auth.CodexAPIKey
+		}
 	}
 	if len(env) == 0 {
 		return []byte{}

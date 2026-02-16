@@ -114,6 +114,97 @@ docker build --target claude -t vibecontainer:claude-local .
 docker build --target codex -t vibecontainer:codex-local .
 ```
 
+## Nix Development
+
+Use the flake to get a reproducible Go CLI development environment.
+
+```sh
+# enter the dev shell (Go, gopls, golangci-lint, docker client, etc.)
+nix develop
+```
+
+```sh
+# build the CLI package output
+nix build .#vibecontainer
+```
+
+```sh
+# run the CLI app output
+nix run .#vibecontainer -- --version
+```
+
+```sh
+# run flake checks for the current system
+nix flake check
+```
+
+## Go CLI
+
+`vibecontainer` now includes a Go CLI for creating and managing provider-aware stacks.
+
+```sh
+# local build without creating ./vibecontainer in repo root
+go build -o /tmp/vibecontainer ./cmd/vibecontainer
+```
+
+```sh
+# show commands
+/tmp/vibecontainer --help
+```
+
+```sh
+# guided TUI create flow
+vibecontainer create
+```
+
+```sh
+# open current directory as workspace (like `code .`)
+vibecontainer create .
+```
+
+By default, `vibecontainer create` does not bind-mount a host workspace.
+Pass a trailing path (for example `.`) to opt in to mapping.
+
+```sh
+# non-interactive create
+vibecontainer create --yes \
+  --name my-stack \
+  --provider codex \
+  --readonly-port 7681 \
+  --tunnel-token <token> \
+  --openai-api-key <key> \
+  .
+```
+
+```sh
+# lifecycle
+vibecontainer list
+vibecontainer status --name my-stack
+vibecontainer stop --name my-stack
+vibecontainer start --name my-stack
+vibecontainer restart --name my-stack
+vibecontainer logs --name my-stack --follow
+vibecontainer remove --name my-stack --yes
+```
+
+### Credential Management
+
+The CLI securely stores OAuth tokens and API keys in your system keychain (macOS Keychain, Windows Credential Manager, or Linux Secret Service) so you don't need to re-enter them every time.
+
+```sh
+# View which credentials are stored (without showing values)
+vibecontainer credentials list
+
+# Clear all stored credentials
+vibecontainer credentials clear
+```
+
+When creating a stack:
+- The CLI automatically loads previously saved credentials
+- You can press Enter to use saved credentials or type new values
+- New credentials are automatically saved for next time
+- Use `--no-save-auth` to skip saving credentials to keychain
+
 ## Runtime Behavior
 
 `entrypoint.sh` continues to own tmux, ttyd, and firewall lifecycle for all images.

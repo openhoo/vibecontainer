@@ -12,11 +12,11 @@ import (
 	"github.com/openhoo/vibecontainer/internal/domain"
 )
 
-var stackNameRe = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,30}$`)
+var stackNameRe = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,29}[a-z0-9]$`)
 
 func CreateOptions(opts domain.CreateOptions) error {
 	if !stackNameRe.MatchString(opts.Name) {
-		return errors.New("name must match ^[a-z0-9][a-z0-9-]{1,30}$")
+		return errors.New("name must be 2-31 chars, start and end with alphanumeric, and contain only lowercase alphanumeric or hyphens")
 	}
 	if !opts.Provider.Valid() {
 		return errors.New("provider must be one of: base, claude, codex")
@@ -33,10 +33,17 @@ func CreateOptions(opts domain.CreateOptions) error {
 			return fmt.Errorf("workspace path is invalid: %w", err)
 		}
 	}
-	if err := Port("readonly port", opts.ReadOnlyPort); err != nil {
-		return err
+	switch opts.TmuxAccess {
+	case "none", "read", "write":
+	default:
+		return errors.New("tmux-access must be one of: none, read, write")
 	}
-	if opts.Interactive {
+	if opts.TmuxAccess == "read" || opts.TmuxAccess == "write" {
+		if err := Port("readonly port", opts.ReadOnlyPort); err != nil {
+			return err
+		}
+	}
+	if opts.TmuxAccess == "write" {
 		if err := Port("interactive port", opts.InteractivePort); err != nil {
 			return err
 		}

@@ -13,7 +13,7 @@ func TestComposeYAMLIncludesCloudflaredAndPorts(t *testing.T) {
 		WorkspacePath:   "/tmp/workspace",
 		Provider:        domain.ProviderCodex,
 		ReadOnlyPort:    9001,
-		Interactive:     true,
+		TmuxAccess:      "write",
 		InteractivePort: 9002,
 		FirewallEnable:  true,
 		TunnelEnable:    true,
@@ -39,6 +39,13 @@ func TestComposeYAMLIncludesCloudflaredAndPorts(t *testing.T) {
 	if !strings.Contains(s, "working_dir: /workspace") || !strings.Contains(s, "/tmp/workspace:/workspace") {
 		t.Fatal("expected workspace mount and working_dir")
 	}
+	// Secrets must use env-var substitution, not literal values
+	if strings.Contains(s, "sk-123") {
+		t.Fatal("compose YAML must not contain literal secret values")
+	}
+	if !strings.Contains(s, "${OPENAI_API_KEY}") {
+		t.Fatal("expected ${OPENAI_API_KEY} substitution in compose YAML")
+	}
 }
 
 func TestComposeYAMLOmitsCloudflaredWhenDisabled(t *testing.T) {
@@ -46,7 +53,7 @@ func TestComposeYAMLOmitsCloudflaredWhenDisabled(t *testing.T) {
 		Name:            "demo-stack",
 		Provider:        domain.ProviderCodex,
 		ReadOnlyPort:    9001,
-		Interactive:     false,
+		TmuxAccess:      "read",
 		InteractivePort: 9002,
 		FirewallEnable:  true,
 		TunnelEnable:    false,
@@ -61,6 +68,9 @@ func TestComposeYAMLOmitsCloudflaredWhenDisabled(t *testing.T) {
 	s := string(b)
 	if strings.Contains(s, "cloudflared") {
 		t.Fatal("expected no cloudflared service when tunnel is disabled")
+	}
+	if strings.Contains(s, "sk-123") {
+		t.Fatal("compose YAML must not contain literal secret values")
 	}
 }
 
@@ -84,12 +94,44 @@ func TestEnvFileEmptyWhenTunnelDisabled(t *testing.T) {
 	}
 }
 
+func TestEnvFileContainsAllSecrets(t *testing.T) {
+	env := string(EnvFile(domain.CreateOptions{
+		Provider:     domain.ProviderCodex,
+		TunnelEnable: true,
+		Auth: domain.Auth{
+			TunnelToken:  "tunnel-tok",
+			OpenAIAPIKey: "sk-123",
+			CodexAPIKey:  "cx-456",
+		},
+	}))
+	for _, want := range []string{"TUNNEL_TOKEN=tunnel-tok", "OPENAI_API_KEY=sk-123", "CODEX_API_KEY=cx-456"} {
+		if !strings.Contains(env, want) {
+			t.Fatalf("expected env file to contain %q, got:\n%s", want, env)
+		}
+	}
+}
+
+func TestEnvFileContainsClaudeSecrets(t *testing.T) {
+	env := string(EnvFile(domain.CreateOptions{
+		Provider: domain.ProviderClaude,
+		Auth: domain.Auth{
+			ClaudeOAuthToken: "oauth-tok",
+			AnthropicAPIKey:  "ant-key",
+		},
+	}))
+	for _, want := range []string{"CLAUDE_CODE_OAUTH_TOKEN=oauth-tok", "ANTHROPIC_API_KEY=ant-key"} {
+		if !strings.Contains(env, want) {
+			t.Fatalf("expected env file to contain %q, got:\n%s", want, env)
+		}
+	}
+}
+
 func TestComposeYAMLOmitsWorkspaceWhenUnset(t *testing.T) {
 	opts := domain.CreateOptions{
 		Name:            "demo-stack",
 		Provider:        domain.ProviderBase,
 		ReadOnlyPort:    9001,
-		Interactive:     false,
+		TmuxAccess:      "read",
 		InteractivePort: 9002,
 		FirewallEnable:  true,
 		TunnelEnable:    true,

@@ -54,9 +54,18 @@ func RunCreateWizard(defaults domain.Defaults, seed domain.CreateOptions) (Resul
 		opts.InteractivePort = defaults.InteractivePort
 	}
 
+	// Track whether saved credentials exist (static, for hide-funcs on confirms)
+	hasClaudeOAuth := opts.Auth.ClaudeOAuthToken != ""
+	hasAnthropicKey := opts.Auth.AnthropicAPIKey != ""
+	hasOpenAIKey := opts.Auth.OpenAIAPIKey != ""
+	hasCodexKey := opts.Auth.CodexAPIKey != ""
+	hasCodexAuth := opts.Auth.CodexAuthJSON != ""
+	hasTunnelToken := opts.Auth.TunnelToken != ""
+
 	var (
 		provider           = string(opts.Provider)
-		interactive        = opts.Interactive
+		tmuxExpose         = opts.TmuxAccess != "none"
+		tmuxAccess         = opts.TmuxAccess
 		firewall           = opts.FirewallEnable
 		tunnelEnable       = opts.TunnelEnable
 		readOnlyPortStr    = strconv.Itoa(opts.ReadOnlyPort)
@@ -64,7 +73,26 @@ func RunCreateWizard(defaults domain.Defaults, seed domain.CreateOptions) (Resul
 		customizeAdvanced  bool
 		claudeAuthMethod   = "oauth"
 		codexAuthMethod    = "openai"
+
+		// Mutable: flipped by confirm groups; start true when saved value exists
+		useExistingClaudeOAuth  = hasClaudeOAuth
+		useExistingAnthropicKey = hasAnthropicKey
+		useExistingOpenAIKey    = hasOpenAIKey
+		useExistingCodexKey     = hasCodexKey
+		useExistingCodexAuth    = hasCodexAuth
+		useExistingTunnelToken  = hasTunnelToken
+
+		// New credential inputs (empty; used only when user declines saved)
+		newClaudeOAuth  string
+		newAnthropicKey string
+		newOpenAIKey    string
+		newCodexKey     string
+		newCodexAuth    string
+		newTunnelToken  string
 	)
+	if tmuxAccess == "" {
+		tmuxAccess = "read"
+	}
 
 	fmt.Println(titleStyle.Render("Vibecontainer Setup"))
 
@@ -109,23 +137,37 @@ func RunCreateWizard(defaults domain.Defaults, seed domain.CreateOptions) (Resul
 				Value(&claudeAuthMethod),
 		).WithHideFunc(func() bool { return provider != "claude" }),
 
-		// Claude: OAuth Token
+		// Claude OAuth: use saved?
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title("Use saved Claude OAuth Token?").
+				Value(&useExistingClaudeOAuth),
+		).WithHideFunc(func() bool { return provider != "claude" || claudeAuthMethod != "oauth" || !hasClaudeOAuth }),
+
+		// Claude OAuth: new input
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Claude OAuth Token").
 				Password(true).
-				Value(&opts.Auth.ClaudeOAuthToken).
+				Value(&newClaudeOAuth).
 				Validate(notEmpty("oauth token is required")),
-		).WithHideFunc(func() bool { return provider != "claude" || claudeAuthMethod != "oauth" }),
+		).WithHideFunc(func() bool { return provider != "claude" || claudeAuthMethod != "oauth" || useExistingClaudeOAuth }),
 
-		// Claude: API Key
+		// Anthropic API Key: use saved?
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title("Use saved Anthropic API Key?").
+				Value(&useExistingAnthropicKey),
+		).WithHideFunc(func() bool { return provider != "claude" || claudeAuthMethod != "apikey" || !hasAnthropicKey }),
+
+		// Anthropic API Key: new input
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Anthropic API Key").
 				Password(true).
-				Value(&opts.Auth.AnthropicAPIKey).
+				Value(&newAnthropicKey).
 				Validate(notEmpty("api key is required")),
-		).WithHideFunc(func() bool { return provider != "claude" || claudeAuthMethod != "apikey" }),
+		).WithHideFunc(func() bool { return provider != "claude" || claudeAuthMethod != "apikey" || useExistingAnthropicKey }),
 
 		// Codex: auth method
 		huh.NewGroup(
@@ -140,32 +182,53 @@ func RunCreateWizard(defaults domain.Defaults, seed domain.CreateOptions) (Resul
 				Value(&codexAuthMethod),
 		).WithHideFunc(func() bool { return provider != "codex" }),
 
-		// Codex: OpenAI API Key
+		// OpenAI API Key: use saved?
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title("Use saved OpenAI API Key?").
+				Value(&useExistingOpenAIKey),
+		).WithHideFunc(func() bool { return provider != "codex" || codexAuthMethod != "openai" || !hasOpenAIKey }),
+
+		// OpenAI API Key: new input
 		huh.NewGroup(
 			huh.NewInput().
 				Title("OpenAI API Key").
 				Password(true).
-				Value(&opts.Auth.OpenAIAPIKey).
+				Value(&newOpenAIKey).
 				Validate(notEmpty("api key is required")),
-		).WithHideFunc(func() bool { return provider != "codex" || codexAuthMethod != "openai" }),
+		).WithHideFunc(func() bool { return provider != "codex" || codexAuthMethod != "openai" || useExistingOpenAIKey }),
 
-		// Codex: Codex API Key
+		// Codex API Key: use saved?
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title("Use saved Codex API Key?").
+				Value(&useExistingCodexKey),
+		).WithHideFunc(func() bool { return provider != "codex" || codexAuthMethod != "codex_key" || !hasCodexKey }),
+
+		// Codex API Key: new input
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Codex API Key").
 				Password(true).
-				Value(&opts.Auth.CodexAPIKey).
+				Value(&newCodexKey).
 				Validate(notEmpty("api key is required")),
-		).WithHideFunc(func() bool { return provider != "codex" || codexAuthMethod != "codex_key" }),
+		).WithHideFunc(func() bool { return provider != "codex" || codexAuthMethod != "codex_key" || useExistingCodexKey }),
 
-		// Codex: Auth JSON
+		// Codex Auth JSON: use saved?
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title("Use saved Codex Auth JSON?").
+				Value(&useExistingCodexAuth),
+		).WithHideFunc(func() bool { return provider != "codex" || codexAuthMethod != "auth_json" || !hasCodexAuth }),
+
+		// Codex Auth JSON: new input
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Codex Auth JSON").
 				Password(true).
-				Value(&opts.Auth.CodexAuthJSON).
+				Value(&newCodexAuth).
 				Validate(notEmpty("auth json is required")),
-		).WithHideFunc(func() bool { return provider != "codex" || codexAuthMethod != "auth_json" }),
+		).WithHideFunc(func() bool { return provider != "codex" || codexAuthMethod != "auth_json" || useExistingCodexAuth }),
 
 		// Workspace Path
 		huh.NewGroup(
@@ -176,6 +239,26 @@ func RunCreateWizard(defaults domain.Defaults, seed domain.CreateOptions) (Resul
 				Value(&opts.WorkspacePath),
 		),
 
+		// Expose tmux
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title("Expose tmux?").
+				Description("Make the tmux session accessible via a web browser").
+				Value(&tmuxExpose),
+		),
+
+		// Tmux access level
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Tmux Access Level").
+				Description("Choose the level of access for the web terminal").
+				Options(
+					huh.NewOption("Read-only (view only)", "read"),
+					huh.NewOption("Read & Write (interactive)", "write"),
+				).
+				Value(&tmuxAccess),
+		).WithHideFunc(func() bool { return !tmuxExpose }),
+
 		// Cloudflare Tunnel
 		huh.NewGroup(
 			huh.NewConfirm().
@@ -184,14 +267,21 @@ func RunCreateWizard(defaults domain.Defaults, seed domain.CreateOptions) (Resul
 				Value(&tunnelEnable),
 		),
 
-		// Tunnel Token
+		// Tunnel Token: use saved?
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title("Use saved Cloudflare Tunnel Token?").
+				Value(&useExistingTunnelToken),
+		).WithHideFunc(func() bool { return !tunnelEnable || !hasTunnelToken }),
+
+		// Tunnel Token: new input
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Cloudflare Tunnel Token").
 				Password(true).
-				Value(&opts.Auth.TunnelToken).
+				Value(&newTunnelToken).
 				Validate(notEmpty("tunnel token is required")),
-		).WithHideFunc(func() bool { return !tunnelEnable }),
+		).WithHideFunc(func() bool { return !tunnelEnable || useExistingTunnelToken }),
 
 		// Advanced settings gate
 		huh.NewGroup(
@@ -206,15 +296,8 @@ func RunCreateWizard(defaults domain.Defaults, seed domain.CreateOptions) (Resul
 			huh.NewInput().
 				Title("Read-only Port").
 				Description("Port for the read-only terminal view").
-				Value(&readOnlyPortStr),
-		).WithHideFunc(func() bool { return !customizeAdvanced }),
-
-		// Interactive TTY
-		huh.NewGroup(
-			huh.NewConfirm().
-				Title("Enable Interactive TTY?").
-				Description("Run an interactive terminal alongside the read-only view").
-				Value(&interactive),
+				Value(&readOnlyPortStr).
+				Validate(validatePort("read-only port")),
 		).WithHideFunc(func() bool { return !customizeAdvanced }),
 
 		// Interactive Port
@@ -222,8 +305,9 @@ func RunCreateWizard(defaults domain.Defaults, seed domain.CreateOptions) (Resul
 			huh.NewInput().
 				Title("Interactive Port").
 				Description("Port for the interactive terminal").
-				Value(&interactivePortStr),
-		).WithHideFunc(func() bool { return !customizeAdvanced || !interactive }),
+				Value(&interactivePortStr).
+				Validate(validatePort("interactive port")),
+		).WithHideFunc(func() bool { return !customizeAdvanced || tmuxAccess != "write" }),
 
 		// Firewall
 		huh.NewGroup(
@@ -252,11 +336,35 @@ func RunCreateWizard(defaults domain.Defaults, seed domain.CreateOptions) (Resul
 
 	// Sync values back
 	opts.Provider = domain.Provider(provider)
-	opts.Interactive = interactive
+	if tmuxExpose {
+		opts.TmuxAccess = tmuxAccess
+	} else {
+		opts.TmuxAccess = "none"
+	}
 	opts.FirewallEnable = firewall
 	opts.TunnelEnable = tunnelEnable
 	opts.ReadOnlyPort, _ = strconv.Atoi(readOnlyPortStr)
 	opts.InteractivePort, _ = strconv.Atoi(interactivePortStr)
+
+	// Sync credentials: use new value when user declined saved
+	if !useExistingClaudeOAuth {
+		opts.Auth.ClaudeOAuthToken = newClaudeOAuth
+	}
+	if !useExistingAnthropicKey {
+		opts.Auth.AnthropicAPIKey = newAnthropicKey
+	}
+	if !useExistingOpenAIKey {
+		opts.Auth.OpenAIAPIKey = newOpenAIKey
+	}
+	if !useExistingCodexKey {
+		opts.Auth.CodexAPIKey = newCodexKey
+	}
+	if !useExistingCodexAuth {
+		opts.Auth.CodexAuthJSON = newCodexAuth
+	}
+	if !useExistingTunnelToken {
+		opts.Auth.TunnelToken = newTunnelToken
+	}
 
 	// Build auth description for review
 	authDesc := authDescription(provider, claudeAuthMethod, codexAuthMethod)
@@ -269,7 +377,8 @@ func RunCreateWizard(defaults domain.Defaults, seed domain.CreateOptions) (Resul
 	fmt.Println()
 
 	// Confirm
-	ok, err := Confirm("Create this stack?", "")
+	ok, err := Confirm("Create this stack?", "", true)
+
 	if err != nil {
 		return Result{}, err
 	}
@@ -278,6 +387,19 @@ func RunCreateWizard(defaults domain.Defaults, seed domain.CreateOptions) (Resul
 	}
 
 	return Result{Options: opts, OK: true}, nil
+}
+
+func validatePort(name string) func(string) error {
+	return func(s string) error {
+		n, err := strconv.Atoi(s)
+		if err != nil {
+			return fmt.Errorf("%s must be a number", name)
+		}
+		if n < 1 || n > 65535 {
+			return fmt.Errorf("%s must be between 1 and 65535", name)
+		}
+		return nil
+	}
 }
 
 func notEmpty(msg string) func(string) error {
@@ -326,9 +448,11 @@ func printReview(opts domain.CreateOptions, authDesc string) {
 		line("Workspace:", "(not mapped)")
 	}
 	line("Tunnel:", boolWord(opts.TunnelEnable))
-	line("Read-only Port:", strconv.Itoa(opts.ReadOnlyPort))
-	line("Interactive:", boolWord(opts.Interactive))
-	if opts.Interactive {
+	line("Tmux Access:", opts.TmuxAccess)
+	if opts.TmuxAccess == "read" || opts.TmuxAccess == "write" {
+		line("Read-only Port:", strconv.Itoa(opts.ReadOnlyPort))
+	}
+	if opts.TmuxAccess == "write" {
 		line("Interactive Port:", strconv.Itoa(opts.InteractivePort))
 	}
 	line("Firewall:", boolWord(opts.FirewallEnable))
@@ -346,8 +470,8 @@ func boolWord(v bool) string {
 	return "no"
 }
 
-func Confirm(title string, description string) (bool, error) {
-	var confirm bool
+func Confirm(title string, description string, defaultYes bool) (bool, error) {
+	confirm := defaultYes
 	err := huh.NewForm(
 		huh.NewGroup(
 			huh.NewConfirm().

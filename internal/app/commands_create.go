@@ -67,7 +67,6 @@ func newCreateCmd(defaults *config.DefaultsStore, runs *stack.RunStore, compose 
 				}
 			}
 
-			opts.Provider = domain.Provider(strings.ToLower(strings.TrimSpace(string(opts.Provider))))
 			if err := validate.CreateOptions(opts); err != nil {
 				return err
 			}
@@ -97,8 +96,8 @@ func newCreateCmd(defaults *config.DefaultsStore, runs *stack.RunStore, compose 
 			if err := defaults.Save(domain.Defaults{
 				Provider:        opts.Provider,
 				ReadOnlyPort:    opts.ReadOnlyPort,
-				Interactive:     opts.Interactive,
 				InteractivePort: opts.InteractivePort,
+				TmuxAccess:      opts.TmuxAccess,
 				FirewallEnable:  opts.FirewallEnable,
 				TunnelEnable:    opts.TunnelEnable,
 			}); err != nil {
@@ -112,8 +111,10 @@ func newCreateCmd(defaults *config.DefaultsStore, runs *stack.RunStore, compose 
 			} else {
 				fmt.Printf("Workspace: %s\n", opts.WorkspacePath)
 			}
-			fmt.Printf("Read-only URL: http://127.0.0.1:%d\n", opts.ReadOnlyPort)
-			if opts.Interactive {
+			if opts.TmuxAccess == "read" || opts.TmuxAccess == "write" {
+				fmt.Printf("Read-only URL: http://127.0.0.1:%d\n", opts.ReadOnlyPort)
+			}
+			if opts.TmuxAccess == "write" {
 				fmt.Printf("Interactive URL: http://127.0.0.1:%d\n", opts.InteractivePort)
 			}
 			if opts.TunnelEnable {
@@ -121,20 +122,34 @@ func newCreateCmd(defaults *config.DefaultsStore, runs *stack.RunStore, compose 
 			} else {
 				fmt.Printf("Tunnel: disabled\n")
 			}
+
+			if opts.TmuxAccess == "read" || opts.TmuxAccess == "write" {
+				url := fmt.Sprintf("http://127.0.0.1:%d", opts.ReadOnlyPort)
+				if opts.TmuxAccess == "write" {
+					url = fmt.Sprintf("http://127.0.0.1:%d", opts.InteractivePort)
+				}
+				open, err := tui.Confirm("Open tmux session in browser?", fmt.Sprintf("URL: %s", url), true)
+				if err == nil && open {
+					if browserErr := openBrowser(url); browserErr != nil {
+						fmt.Fprintln(os.Stderr, "Warning: failed to open browser:", browserErr)
+					}
+				}
+			}
 			return nil
 		},
 	}
 
 	cmd.Flags().BoolVar(&autoYes, "yes", false, "skip the TUI and use flags only")
+	cmd.Flags().BoolVar(&noSaveAuth, "no-save-auth", false, "don't save credentials to keychain")
 	cmd.Flags().StringVar(&opts.Name, "name", "", "stack name")
 	cmd.Flags().Var((*providerValue)(&opts.Provider), "provider", "provider: base|claude|codex")
 	cmd.Flags().StringVar(&opts.Image, "image", "", "image override")
 	cmd.Flags().IntVar(&opts.ReadOnlyPort, "readonly-port", 0, "read-only port")
-	cmd.Flags().BoolVar(&opts.Interactive, "interactive", false, "enable interactive ttyd port")
+	cmd.Flags().StringVar(&opts.TmuxAccess, "tmux-access", "", "tmux access level: none|read|write")
 	cmd.Flags().IntVar(&opts.InteractivePort, "interactive-port", 0, "interactive port")
 	cmd.Flags().StringVar(&opts.TTYDCredential, "ttyd-credential", "", "ttyd basic auth credential user:password")
-	cmd.Flags().BoolVar(&opts.FirewallEnable, "firewall-enable", true, "enable firewall inside container")
-	cmd.Flags().BoolVar(&opts.TunnelEnable, "tunnel-enable", true, "enable cloudflare tunnel")
+	cmd.Flags().BoolVar(&opts.FirewallEnable, "firewall-enable", false, "enable firewall inside container")
+	cmd.Flags().BoolVar(&opts.TunnelEnable, "tunnel-enable", false, "enable cloudflare tunnel")
 	cmd.Flags().StringVar(&opts.Auth.TunnelToken, "tunnel-token", "", "cloudflare tunnel token (required when tunnel is enabled)")
 	cmd.Flags().StringVar(&opts.Auth.ClaudeOAuthToken, "claude-oauth-token", "", "claude oauth token")
 	cmd.Flags().StringVar(&opts.Auth.AnthropicAPIKey, "anthropic-api-key", "", "anthropic api key")
@@ -145,18 +160,46 @@ func newCreateCmd(defaults *config.DefaultsStore, runs *stack.RunStore, compose 
 	return cmd
 }
 
+// mergeAuth merges command-line provided auth with stored auth from keychain
+// Command-line flags take precedence over stored credentials
+func mergeAuth(cmd *cobra.Command, flagAuth, storedAuth domain.Auth) domain.Auth {
+	result := storedAuth
+
+	// Override with flags if they were explicitly provided
+	if cmd.Flags().Changed("claude-oauth-token") {
+		result.ClaudeOAuthToken = flagAuth.ClaudeOAuthToken
+	}
+	if cmd.Flags().Changed("anthropic-api-key") {
+		result.AnthropicAPIKey = flagAuth.AnthropicAPIKey
+	}
+	if cmd.Flags().Changed("codex-auth-json") {
+		result.CodexAuthJSON = flagAuth.CodexAuthJSON
+	}
+	if cmd.Flags().Changed("openai-api-key") {
+		result.OpenAIAPIKey = flagAuth.OpenAIAPIKey
+	}
+	if cmd.Flags().Changed("codex-api-key") {
+		result.CodexAPIKey = flagAuth.CodexAPIKey
+	}
+	if cmd.Flags().Changed("tunnel-token") {
+		result.TunnelToken = flagAuth.TunnelToken
+	}
+
+	return result
+}
+
 func applyDefaults(cmd *cobra.Command, opts domain.CreateOptions, d domain.Defaults) domain.CreateOptions {
-	if !cmd.Flags().Changed("provider") || !opts.Provider.Valid() {
+	if !cmd.Flags().Changed("provider") {
 		opts.Provider = d.Provider
 	}
-	if !cmd.Flags().Changed("readonly-port") || opts.ReadOnlyPort == 0 {
+	if !cmd.Flags().Changed("readonly-port") {
 		opts.ReadOnlyPort = d.ReadOnlyPort
 	}
-	if !cmd.Flags().Changed("interactive-port") || opts.InteractivePort == 0 {
+	if !cmd.Flags().Changed("interactive-port") {
 		opts.InteractivePort = d.InteractivePort
 	}
-	if !cmd.Flags().Changed("interactive") {
-		opts.Interactive = d.Interactive
+	if !cmd.Flags().Changed("tmux-access") {
+		opts.TmuxAccess = d.TmuxAccess
 	}
 	if !cmd.Flags().Changed("firewall-enable") {
 		opts.FirewallEnable = d.FirewallEnable

@@ -34,8 +34,8 @@ type CreateOptions struct {
 	Provider        Provider `json:"provider"`
 	Image           string   `json:"image,omitempty"`
 	ReadOnlyPort    int      `json:"read_only_port"`
-	Interactive     bool     `json:"interactive"`
 	InteractivePort int      `json:"interactive_port"`
+	TmuxAccess      string   `json:"tmux_access"` // "none", "read", "write"
 	TTYDCredential  string   `json:"ttyd_credential,omitempty"`
 	FirewallEnable  bool     `json:"firewall_enable"`
 	TunnelEnable    bool     `json:"tunnel_enable"`
@@ -54,8 +54,8 @@ type RunMetadata struct {
 type Defaults struct {
 	Provider        Provider `json:"provider"`
 	ReadOnlyPort    int      `json:"read_only_port"`
-	Interactive     bool     `json:"interactive"`
 	InteractivePort int      `json:"interactive_port"`
+	TmuxAccess      string   `json:"tmux_access"` // "none", "read", "write"
 	FirewallEnable  bool     `json:"firewall_enable"`
 	TunnelEnable    bool     `json:"tunnel_enable"`
 }
@@ -71,8 +71,8 @@ func DefaultDefaults() Defaults {
 	return Defaults{
 		Provider:        ProviderCodex,
 		ReadOnlyPort:    7681,
-		Interactive:     false,
 		InteractivePort: 7682,
+		TmuxAccess:      "read",
 		FirewallEnable:  true,
 		TunnelEnable:    true,
 	}
