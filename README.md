@@ -41,6 +41,61 @@ docker run -d --name vibecontainer-codex \
 
 Open read-only stream: [http://127.0.0.1:7681](http://127.0.0.1:7681)
 
+## Cloudflare Tunnel
+
+You can publish the read-only (or interactive) ttyd endpoint through Cloudflare Tunnel using `cloudflared`.
+
+```sh
+# Example: expose read-only ttyd through an existing named tunnel
+docker run -d --name cloudflared \
+  --network container:vibecontainer \
+  cloudflare/cloudflared:latest \
+  tunnel --no-autoupdate run --token <TUNNEL_TOKEN>
+```
+
+In Cloudflare Zero Trust, route your public hostname to:
+- `http://vibecontainer:7681` for read-only stream
+- `http://vibecontainer:7682` for interactive stream (if enabled)
+
+`docker-compose.yml` example:
+
+```yaml
+services:
+  vibecontainer:
+    image: ghcr.io/openhoo/vibecontainer:latest
+    container_name: vibecontainer
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    environment:
+      TMUX_WEB_ENABLE: "1"
+      TMUX_WEB_INTERACTIVE_ENABLE: "0"
+      TTYD_CREDENTIAL: "user:change-me"
+    ports:
+      - "127.0.0.1:7681:7681"
+      - "127.0.0.1:7682:7682"
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    depends_on:
+      - vibecontainer
+    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
+    network_mode: "service:vibecontainer"
+    restart: unless-stopped
+```
+
+Create `.env` next to the compose file:
+
+```env
+TUNNEL_TOKEN=<your-cloudflare-tunnel-token>
+```
+
+When exposing remotely, protect access with:
+- `TTYD_CREDENTIAL` on the container, and/or
+- Cloudflare Access policies in Zero Trust
+
 ## Build from Source
 
 ```sh
