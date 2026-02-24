@@ -77,7 +77,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ARG USERNAME=dev
 # renovate: datasource=github-releases depName=anthropics/claude-code
-ARG CLAUDE_CODE_VERSION=2.1.50
+ARG CLAUDE_CODE_VERSION=2.1.52
 
 LABEL org.opencontainers.image.claude-code.version="${CLAUDE_CODE_VERSION}"
 
