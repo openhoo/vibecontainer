@@ -122,7 +122,7 @@ FROM base AS codex
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # renovate: datasource=npm depName=@openai/codex
-ARG CODEX_VERSION=0.104.0
+ARG CODEX_VERSION=0.105.0
 
 LABEL org.opencontainers.image.codex.version="${CODEX_VERSION}"
 
