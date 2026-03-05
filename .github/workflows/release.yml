@@ -217,7 +217,7 @@ jobs:
             ./cmd/vibecontainer
 
       - name: Upload binary
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: cli-${{ matrix.goos }}-${{ matrix.goarch }}
           path: vibecontainer-*
@@ -282,7 +282,7 @@ jobs:
           touch "${{ runner.temp }}/digests/${digest#sha256:}"
 
       - name: Upload digest
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: digests-${{ matrix.flavor }}-${{ env.PLATFORM_PAIR }}
           path: ${{ runner.temp }}/digests/*
@@ -306,7 +306,7 @@ jobs:
       id-token: write
     steps:
       - name: Download digests
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
         with:
           path: ${{ runner.temp }}/digests
           pattern: digests-${{ matrix.flavor }}-*
@@ -440,7 +440,7 @@ jobs:
     steps:
       - name: Download CLI artifacts
         if: needs.detect.outputs.cli_changed == 'true' && needs.cli-build.result == 'success'
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
         with:
           path: cli-artifacts
           pattern: cli-*
