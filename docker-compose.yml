@@ -15,7 +15,7 @@ services:
     restart: unless-stopped
 
   cloudflared:
-    image: cloudflare/cloudflared:2026.2.0
+    image: cloudflare/cloudflared:2026.5.0
     container_name: cloudflared
     command: tunnel run
     environment:
